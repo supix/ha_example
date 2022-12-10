@@ -1,0 +1,20 @@
+version: "3.9"
+services:
+  fe1:
+    image: frontend:v1
+    container_name: fe1
+    restart: unless-stopped
+  fe2:
+    image: frontend:v1
+    container_name: fe2
+    restart: unless-stopped
+  lb:
+    image: lb:v1
+    container_name: lb
+    ports:
+      - "80:80"
+      - "8404:8404"
+    depends_on:
+      - fe1
+      - fe2
+    restart: unless-stopped

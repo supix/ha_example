@@ -460,3 +460,70 @@ docker run -d --name lb --network my_net -p 80:80 -p 8404:8404 lb:v1
 Puntando con il browser all'indirizzo `http://localhost:8404/stats` si visualizza il cruscotto di monitoraggio.
 
 ![Cruscotto di monitoraggio HAProxy](haproxy.png)
+
+## La creazione automatica del setup applicativo: docker compose
+
+Analizziamo il file `docker.compose.yml` presente nel repository.
+
+```
+version: "3.9"
+services:
+  fe1:
+    image: frontend:v1
+    container_name: fe1
+    restart: unless-stopped
+  fe2:
+    image: frontend:v1
+    container_name: fe2
+    restart: unless-stopped
+  lb:
+    image: lb:v1
+    container_name: lb
+    ports:
+      - "80:80"
+      - "8404:8404"
+    depends_on:
+      - fe1
+      - fe2
+    restart: unless-stopped
+```
+
+Si può notare come questo file descriva il setup precedentemente allestito mediante l'esecuzione di molteplici comandi di tipo `docker run`.
+
+Grazie a questa descrizione, l'intero servizio può essere attivato con un unico comando.
+
+```
+root@ubuntu:~/ha_example# docker compose up -d
+[+] Running 4/4
+ ⠿ Network ha_example_default  Created                                                                                                      0.1s
+ ⠿ Container fe1               Started                                                                                                      1.2s
+ ⠿ Container fe2               Started                                                                                                      1.3s
+ ⠿ Container lb                Started                                                                                                      1.7s
+```
+
+Dopo l'esecuzione del comando, digitando `docker ps` si vede come i tre containers sono tutti attivi e correttamente collegati alle porte 80 e 8404 dell'host docker.
+
+```
+root@ubuntu:~/ha_example# docker ps
+CONTAINER ID   IMAGE         COMMAND                  CREATED              STATUS              PORTS                                                                          NAMES
+038fe59dcd93   lb:v1         "docker-entrypoint.s…"   About a minute ago   Up About a minute   0.0.0.0:80->80/tcp, :::80->80/tcp, 0.0.0.0:8404->8404/tcp, :::8404->8404/tcp   lb
+39343a9e1da3   frontend:v1   "/docker-entrypoint.…"   About a minute ago   Up About a minute   80/tcp                                                                         fe1
+e0b95aeafc37   frontend:v1   "/docker-entrypoint.…"   About a minute ago   Up About a minute   80/tcp                                                                         fe2
+```
+
+Inoltre, l'esecuzione ha anche automaticamente creato la rete `ha_example_default` al quale sono agganciati tutti i container.
+
+Le righe `restart: unless-stopped` nel file fanno sì che tutto il servizio venga automaticamente riavviato anche nel caso in cui l'host docker venga riavviato. Si può provare ad eseguire un comando `reboot` sull'host docker per verificare che, una volta riavviato, i tre container sono di nuovo attivi.
+
+Anche per abbattere completamente il servizio erogato dai tre container è sufficiente un solo comando: `docker compose down`.
+
+```
+root@ubuntu:~/ha_example# docker compose down
+[+] Running 4/3
+ ⠿ Container lb                Removed                                                                                                      0.2s
+ ⠿ Container fe2               Removed                                                                                                      0.4s
+ ⠿ Container fe1               Removed                                                                                                      0.4s
+ ⠿ Network ha_example_default  Removed                                                                                                      0.1s
+root@ubuntu:~/ha_example# docker ps
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+```
